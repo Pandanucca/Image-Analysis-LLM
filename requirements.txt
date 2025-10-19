@@ -1,0 +1,27 @@
+# Core Dependencies
+flask==3.0.0
+flask-cors==4.0.0
+python-dotenv==1.0.0
+
+# AI/ML Libraries
+torch==2.9.0
+transformers==4.35.0
+sentence-transformers==2.2.2
+pillow==10.1.0
+
+# Vector Database
+chromadb==0.4.18
+langchain==0.0.335
+langchain-community==0.0.1
+
+# Image Processing
+opencv-python==4.8.1.78
+ultralytics==8.0.225  # YOLO
+
+# Utilities
+numpy==1.24.3
+pandas==2.1.3
+tqdm==4.66.1
+
+# Optional: For better tokenization
+tiktoken==0.5.1

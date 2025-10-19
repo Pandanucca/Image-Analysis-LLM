@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Showcase Remodels - AI Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .message-user {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .message-assistant {
+            background: white;
+            border: 1px solid #e5e7eb;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .typing-indicator span {
+            animation: blink 1.4s infinite;
+        }
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes blink {
+            0%, 60%, 100% { opacity: 0.2; }
+            30% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+    <div class="flex flex-col h-screen max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="bg-white shadow-md border-b border-gray-200 p-6">
+            <h1 class="text-3xl font-bold text-gray-800">Showcase Remodels</h1>
+            <p class="text-sm text-gray-600 mt-1">AI-Powered Remodeling Assistant</p>
+        </header>
+
+        <!-- Chat Container -->
+        <div id="chatContainer" class="flex-1 overflow-y-auto p-6 space-y-4">
+            <!-- Welcome Message -->
+            <div class="text-center py-12">
+                <div class="bg-white rounded-2xl shadow-lg p-8 inline-block max-w-md">
+                    <svg class="w-16 h-16 text-blue-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    <h2 class="text-xl font-semibold text-gray-800 mb-2">Welcome!</h2>
+                    <p class="text-gray-600">Upload room photos or ask about our remodeling services to get started.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Preview Area -->
+        <div id="imagePreviewArea" class="bg-white border-t border-gray-200 px-6 py-3 hidden">
+            <div class="flex gap-2 overflow-x-auto" id="imagePreviewContainer"></div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="bg-white border-t border-gray-200 shadow-lg p-6">
+            <div class="flex gap-3">
+                <label class="flex-shrink-0 cursor-pointer">
+                    <input type="file" id="imageInput" accept="image/*" multiple class="hidden">
+                    <div class="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl p-3 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                    </div>
+                </label>
+
+                <input
+                    type="text"
+                    id="messageInput"
+                    placeholder="Ask about remodeling or describe your project..."
+                    class="flex-1 border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+
+                <button
+                    id="sendButton"
+                    class="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-6 py-3 font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'http://localhost:5000/api';
+        let conversationId = null;
+        let uploadedImages = [];
+
+        // DOM Elements
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const imageInput = document.getElementById('imageInput');
+        const imagePreviewArea = document.getElementById('imagePreviewArea');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+
+        // Event Listeners
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+        imageInput.addEventListener('change', handleImageUpload);
+
+        // Handle image upload
+        function handleImageUpload(e) {
+            const files = Array.from(e.target.files);
+
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imageData = {
+                        file: file,
+                        url: e.target.result,
+                        id: Date.now() + Math.random()
+                    };
+                    uploadedImages.push(imageData);
+                    renderImagePreviews();
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Render image previews
+        function renderImagePreviews() {
+            if (uploadedImages.length === 0) {
+                imagePreviewArea.classList.add('hidden');
+                return;
+            }
+
+            imagePreviewArea.classList.remove('hidden');
+            imagePreviewContainer.innerHTML = uploadedImages.map(img => `
+                <div class="relative flex-shrink-0">
+                    <img src="${img.url}" class="h-20 w-20 object-cover rounded-lg border-2 border-blue-500">
+                    <button
+                        onclick="removeImage('${img.id}')"
+                        class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Remove image
+        window.removeImage = function(id) {
+            uploadedImages = uploadedImages.filter(img => img.id != id);
+            renderImagePreviews();
+        }
+
+        // Send message
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+
+            if (!message && uploadedImages.length === 0) return;
+
+            // Disable input
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+
+            // Clear welcome message on first send
+            const welcomeMsg = chatContainer.querySelector('.text-center');
+            if (welcomeMsg) welcomeMsg.remove();
+
+            // Add user message
+            addMessage('user', message, uploadedImages.map(img => img.url));
+
+            // Clear input
+            messageInput.value = '';
+            const userImages = [...uploadedImages];
+            uploadedImages = [];
+            renderImagePreviews();
+
+            // Show typing indicator
+            showTypingIndicator();
+
+            try {
+                let response;
+
+                if (userImages.length > 0) {
+                    // Send with images
+                    const formData = new FormData();
+                    formData.append('query', message || 'What remodeling suggestions do you have?');
+                    if (conversationId) formData.append('conversation_id', conversationId);
+
+                    userImages.forEach(img => {
+                        formData.append('images', img.file);
+                    });
+
+                    response = await fetch(`${API_BASE_URL}/chat/image`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                } else {
+                    // Send text only
+                    response = await fetch(`${API_BASE_URL}/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            query: message,
+                            conversation_id: conversationId
+                        })
+                    });
+                }
+
+                const data = await response.json();
+
+                if (!response.ok) throw new Error(data.error || 'Request failed');
+
+                // Store conversation ID
+                conversationId = data.conversation_id;
+
+                // Remove typing indicator
+                removeTypingIndicator();
+
+                // Add bot response
+                addMessage('assistant', data.response, null, data.image_analysis);
+
+            } catch (error) {
+                console.error('Error:', error);
+                removeTypingIndicator();
+                addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+            }
+
+            // Re-enable input
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+            messageInput.focus();
+        }
+
+        // Add message to chat
+        function addMessage(role, content, images = null, imageAnalysis = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} fade-in`;
+
+            let imagesHTML = '';
+            if (images && images.length > 0) {
+                imagesHTML = `
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        ${images.map(url => `
+                            <img src="${url}" class="rounded-lg w-full h-32 object-cover">
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            let analysisHTML = '';
+            if (imageAnalysis && imageAnalysis.length > 0) {
+                analysisHTML = '<div class="text-sm bg-blue-50 rounded p-2 mb-2">';
+                imageAnalysis.forEach((analysis, idx) => {
+                    analysisHTML += `
+                        <div class="mb-1">
+                            <strong>Image ${idx + 1}:</strong>
+                            ${analysis.room_type} - ${analysis.detected_objects.slice(0, 3).join(', ')}
+                        </div>
+                    `;
+                });
+                analysisHTML += '</div>';
+            }
+
+            messageDiv.innerHTML = `
+                <div class="max-w-2xl ${role === 'user' ? 'message-user text-white' : 'message-assistant text-gray-800'} rounded-2xl shadow-md p-4">
+                    ${imagesHTML}
+                    ${analysisHTML}
+                    <p class="whitespace-pre-line">${content}</p>
+                    <span class="text-xs ${role === 'user' ? 'text-blue-200' : 'text-gray-400'} mt-2 block">
+                        ${new Date().toLocaleTimeString()}
+                    </span>
+                </div>
+            `;
+
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Show typing indicator
+        function showTypingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.id = 'typingIndicator';
+            indicator.className = 'flex justify-start fade-in';
+            indicator.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-md p-4 typing-indicator">
+                    <span class="inline-block w-2 h-2 bg-gray-400 rounded-full mx-1"></span>
+                    <span class="inline-block w-2 h-2 bg-gray-400 rounded-full mx-1"></span>
+                    <span class="inline-block w-2 h-2 bg-gray-400 rounded-full mx-1"></span>
+                </div>
+            `;
+            chatContainer.appendChild(indicator);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Remove typing indicator
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) indicator.remove();
+        }
+    </script>
+</body>
+</html>
