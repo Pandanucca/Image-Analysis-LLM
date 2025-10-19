@@ -7,6 +7,3 @@ RAG-based chatbot for home remodeling consultations with image analysis.
 - Image upload and room analysis
 - Retrieval-Augmented Generation for accurate responses
 - Web-based interface
-
-## Quick Start
-See INSTALLATION.md
